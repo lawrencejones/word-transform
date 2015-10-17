@@ -1,0 +1,68 @@
+#!/usr/bin/env ruby
+# This is a bit of fun, just to find the upper limits of the transform paths between
+# available words. Used it to find a pairing (tiger, stave) that could be used to
+# benchmark my algorithms.
+
+require 'thread'
+require 'facter'
+require_relative '../lib/word_transform'
+
+def usage
+  puts """
+  Desc:  Searches through a dictionary for all the valid transformations
+         from a source word through the dictionary where each step is a single
+         character transform.
+
+  Usage: all_valid_destinations_from <source> <parallelisation_factor>?
+  Examples...
+
+      all_valid_destinations_from tiger    # default workers
+      all_valid_destinations_from tiger 4  # four workers
+
+  """
+  exit(-1)
+end
+
+def default_parallelisation_factor
+  no_of_cpus = Facter.value('processors')['count']
+  puts "Detected #{no_of_cpus} CPU cores available for parallelisation"
+
+  no_of_cpus - 1
+end
+
+def find_valid_destinations_from(source, finder, parallelisation)
+  words_of_same_size = WORDS.select { |word| word.size == source.size }
+  pids = words_of_same_size.
+    each_slice((words_of_same_size.count.to_f / Integer(parallelisation)).ceil).
+    map do |word_group|
+      start_worker(finder, word_group, source)
+    end
+
+  pids.each { |pid| Process.wait(pid) }
+end
+
+def start_worker(finder, candidate_destinations, source)
+  pid = Process.fork do
+    puts "Process starting from [#{candidate_destinations[0]}]..."
+
+    candidate_destinations.shuffle.each do |candidate|
+      distance = finder.min_distance_between(source, candidate)
+      puts "[#{distance}]\t#{candidate}" if distance
+    end
+  end
+
+  pid || Process.exit(0)
+end
+
+source, parallelisation_factor = ARGV.last(2)
+parallelisation_factor ||= default_parallelisation_factor
+
+usage unless source && parallelisation_factor
+
+WORDS = File.read('/usr/share/dict/words').split.map(&:downcase).uniq.freeze
+dictionary = WordTransform::Dictionary.new(WORDS)
+finder = WordTransform::MinDistanceFinder.new(dictionary, WordTransform::AStarSearch)
+
+find_valid_destinations_from(source, finder, parallelisation_factor)
+
+puts 'Done!'

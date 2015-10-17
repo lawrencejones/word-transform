@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/word_transform'
+
+def usage
+  puts """
+  Desc:  Finds min single char transforms through valid dictionary words
+         between the source and destination words.
+
+         Source and destination must be words of the same character length!
+
+         Algorithms available: bfs (breadth-first) and ass (A*)
+
+  Usage: min_distance_between <source> <destination> <algorithm>
+  Examples...
+
+      min_distance_between hot dot bfs  # breadth first search
+      min_distance_between tiger stave ass  # A* search
+
+  """
+  exit(-1)
+end
+
+WORDS = File.read('/usr/share/dict/words').split.map(&:downcase).uniq.freeze
+dictionary = WordTransform::Dictionary.new(WORDS)
+
+SEARCHERS = {
+  'bfs' => WordTransform::BreadthFirstSearch,
+  'ass' => WordTransform::AStarSearch,
+}
+
+source, destination, algorithm = ARGV.last(3)
+
+usage unless source && destination
+usage unless source.length == destination.length
+usage unless SEARCHERS.key?(algorithm)
+
+searcher = SEARCHERS.fetch(algorithm)
+finder = WordTransform::MinDistanceFinder.new(dictionary, searcher)
+
+puts "Finding path from #{source}->#{destination} with #{searcher}..."
+distance = finder.min_distance_between(source, destination)
+puts distance ? "Distance is #{distance}" : "No path found!"

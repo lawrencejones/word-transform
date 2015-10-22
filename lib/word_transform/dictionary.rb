@@ -2,6 +2,7 @@ module WordTransform
   class Dictionary
     def initialize(words)
       @words = words
+      @words_of_size = {}
     end
 
     def neighbours_of(word)
@@ -14,7 +15,7 @@ module WordTransform
     attr_reader :words, :searcher
 
     def words_of_size(n)
-      @words_of_size ||= words.select { |word| word.size == n }
+      @words_of_size[n] ||= words.select { |word| word.size == n }
     end
 
     def difference_of_one(source, destination)
